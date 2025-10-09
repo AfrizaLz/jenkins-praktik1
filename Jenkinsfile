@@ -1,5 +1,9 @@
 pipeline {
     agent { docker { image 'python:3.10' } }
+    tools {
+        // INI BAGIAN PENTING YANG DITAMBAHKAN
+        tool 'docker' 
+    }
     environment {
         VENV = "venv"
     }
