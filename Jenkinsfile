@@ -1,12 +1,47 @@
 pipeline {
-    agent any
+    agent { docker { image 'python:3.10' } }
+    environment {
+        VENV = "venv"
+    }
     stages {
-        stage('Install Dependencies') { steps { sh 'pip install -r requirements.txt' } }
-        stage('Run Tests') { steps { sh 'pytest test_app.py' } }
-        stage('Deploy') { when { branch 'main' }; steps { echo "Deploying main" } }
+        stage('Setup & Install') {
+            steps {
+                script {
+                    sh "python -m venv ${VENV}"
+                    sh ". ${VENV}/bin/activate && pip install -r requirements.txt"
+                }
+            }
+        }
+        stage('Run Tests') {
+            steps {
+                script {
+                    sh ". ${VENV}/bin/activate && pytest test_app.py"
+                }
+            }
+        }
+        stage('Deploy') {
+            when { branch 'main' }
+            steps { echo "Deploying main branch" }
+        }
     }
     post {
-        success { script { httpRequest(url: 'https://discord.com/api/webhooks/1425701485144182894/TfPGpcYk2tusUaZ989_jy4CQMCErmsPoJMjY3h35EaAd1zK2C6fz2mNE52SJPcG8fZUb', requestBody: '{"content": "✅ Build SUCCESS on `${env.BRANCH_NAME}`"}') } }
-        failure { script { httpRequest(url: 'https://discord.com/api/webhooks/1425701485144182894/TfPGpcYk2tusUaZ989_jy4CQMCErmsPoJMjY3h35EaAd1zK2C6fz2mNE52SJPcG8fZUb', requestBody: '{"content": "❌ Build FAILED on `${env.BRANCH_NAME}`"}') } }
+        success {
+            script {
+                httpRequest(
+                    url: 'https://discord.com/api/webhooks/1425727349357281345/7rBi27X5bkbWZwCOICOBeF0bWXUPhXaXSKu4FWStOuTvXQbB3WAddfKADQPJZgf980H9',
+                    contentType: 'APPLICATION_JSON',
+                    requestBody: '{"content": "✅ Build SUCCESS on `${env.BRANCH_NAME}`. Cek: ${env.BUILD_URL}"}'
+                )
+            }
+        }
+        failure {
+            script {
+                httpRequest(
+                    url: 'https://discord.com/api/webhooks/1425727349357281345/7rBi27X5bkbWZwCOICOBeF0bWXUPhXaXSKu4FWStOuTvXQbB3WAddfKADQPJZgf980H9',
+                    contentType: 'APPLICATION_JSON',
+                    requestBody: '{"content": "❌ Build FAILED on `${env.BRANCH_NAME}`. Cek: ${env.BUILD_URL}"}'
+                )
+            }
+        }
     }
 }
