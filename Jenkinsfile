@@ -1,49 +1,74 @@
+
 pipeline {
-    agent { docker { image 'python:3.10' } }
-    tools {
-        // INI BARIS YANG DIPERBAIKI
-        dockerTool 'docker' 
+    agent {
+        docker {
+            image 'python:3.10'
+             args '-u root'
+        }
     }
+
     environment {
-        VENV = "venv"
+        VENV = 'venv'
     }
+
     stages {
-        stage('Setup & Install') {
+        stage('Setup Environment & Install Dependencies') {
             steps {
-                script {
-                    sh "python -m venv ${VENV}"
-                    sh ". ${VENV}/bin/activate && pip install -r requirements.txt"
-                }
+                sh '''
+                    python -m venv $VENV
+                    . $VENV/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                '''
             }
         }
+
         stage('Run Tests') {
             steps {
-                script {
-                    sh ". ${VENV}/bin/activate && pytest test_app.py"
-                }
+                sh '''
+                    . $VENV/bin/activate
+                    pytest test_app.py
+                '''
             }
         }
+
         stage('Deploy') {
-            when { branch 'main' }
-            steps { echo "Deploying main branch" }
+            when {
+                anyOf {
+                    branch 'main'
+                    branch pattern: "release/.*", comparator: "REGEXP"
+                }
+            }
+            steps {
+                echo "Simulating deploy from branch ${env.BRANCH_NAME}"
+            }
         }
     }
+
     post {
         success {
             script {
+                def payload = [
+                    content: "✅ Build SUCCESS on `${env.BRANCH_NAME}`\nURL: ${env.BUILD_URL}"
+                ]
                 httpRequest(
-                    url: 'https://discord.com/api/webhooks/1425727349357281345/7rBi27X5bkbWZwCOICOBeF0bWXUPhXaXSKu4FWStOuTvXQbB3WAddfKADQPJZgf980H9',
+                    httpMode: 'POST',
                     contentType: 'APPLICATION_JSON',
-                    requestBody: '{"content": "✅ Build SUCCESS on `${env.BRANCH_NAME}`. Cek: ${env.BUILD_URL}"}'
+                    requestBody: groovy.json.JsonOutput.toJson(payload),
+                    url: 'https://discord.com/api/webhooks/1425792991225712651/xlHtRXx5DmRtLHjdbgp60b4s0YqUzv7MICpiinTfNsJZ4rT8zXYIXB9_lIRyoaiEKvTM'
                 )
             }
         }
         failure {
             script {
+                def payload = [
+                    content: "❌ Build FAILED on `${env.BRANCH_NAME}`\nURL: ${env.BUILD_URL}"
+                ]
                 httpRequest(
-                    url: 'https://discord.com/api/webhooks/1425727349357281345/7rBi27X5bkbWZwCOICOBeF0bWXUPhXaXSKu4FWStOuTvXQbB3WAddfKADQPJZgf980H9',
+                    httpMode: 'POST',
                     contentType: 'APPLICATION_JSON',
-                    requestBody: '{"content": "❌ Build FAILED on `${env.BRANCH_NAME}`. Cek: ${env.BUILD_URL}"}'
+                    requestBody: groovy.json.JsonOutput.toJson(payload),
+                    url: 'https://discord.com/api/webhooks/1425792991225712651/xlHtRXx5DmRtLHjdbgp60b4s0YqUzv7MICpiinTfNsJZ4rT8zXYIXB9_lIRyoaiEKvTM'
                 )
             }
         }
